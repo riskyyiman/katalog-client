@@ -1,66 +1,57 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { Product } from '@/types';
 
 interface ProductCardProps {
   product: Product;
+  viewMode?: 'grid' | 'list';
 }
 
-const ProductCard = ({ product }: ProductCardProps) => {
-  const id = product.id;
-  const name = product.nama || product.name || 'Premium Item';
-  const category = product.category || 'Collection';
-  const price = product.harga || product.price || 0;
-  const imageUrl = product.image_url || product.gambar || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=600';
+export default function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(price);
+  };
+
+  if (viewMode === 'list') {
+    return (
+      <Link href={`/product/${product.id}`} className="group block">
+        <div className="flex gap-4 sm:gap-6 items-start bg-white border border-zinc-100 rounded-xl sm:rounded-2xl p-3 sm:p-4 hover:shadow-lg transition-all duration-300">
+          <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 shrink-0 bg-zinc-100 rounded-lg sm:rounded-xl overflow-hidden">
+            <Image src={product.gambar} alt={product.nama} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[8px] sm:text-[9px] uppercase tracking-wider text-zinc-400 mb-0.5 sm:mb-1">{product.category}</p>
+            <h3 className="font-serif text-sm sm:text-base md:text-lg text-zinc-900 mb-1 sm:mb-2 group-hover:text-zinc-600 transition-colors line-clamp-2">{product.nama}</h3>
+            <p className="text-xs sm:text-sm font-medium text-zinc-800">{formatPrice(product.harga)}</p>
+          </div>
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </div>
+      </Link>
+    );
+  }
 
   return (
-    <div className="group relative flex flex-col w-full font-sans">
-      {/* 1. Image & Interactive Area */}
-      <div className="relative w-full aspect-4/5 rounded-[20px] overflow-hidden bg-zinc-50 isolate">
-        <Image
-          src={imageUrl}
-          alt={name}
-          fill
-          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-          className="object-cover object-center group-hover:scale-105 transition-transform duration-[1.2s] ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
-        />
-
-        {/* Seamless Soft Gradient Overlay on Hover */}
-        <div className="absolute inset-0 bg-linear-to-t from-black/40 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out pointer-events-none z-10" />
-
-        {/* Hover Floating Action */}
-        <div className="absolute bottom-5 left-5 right-5 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 ease-out delay-75 z-20">
-          <div className="w-full py-3.5 bg-white/80 backdrop-blur-md text-zinc-900 text-[10px] font-bold tracking-[0.15em] uppercase text-center rounded-xl border border-white/20 shadow-xl transition-colors hover:bg-white">
-            Lihat Produk
-          </div>
-        </div>
+    <Link href={`/product/${product.id}`} className="group block">
+      <div className="relative aspect-3/4 bg-zinc-100 rounded-sm overflow-hidden mb-3 sm:mb-4">
+        <Image src={product.gambar} alt={product.nama} fill className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out" />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-500" />
       </div>
 
-      {/* 2. Text Content */}
-      <div className="mt-5 flex flex-col px-1">
-        <div className="flex justify-between items-start gap-4">
-          <div className="flex flex-col">
-            {/* Category */}
-            <span className="text-[10px] font-bold tracking-[0.2em] text-zinc-400 uppercase mb-1.5 block">{category}</span>
-
-            {/* Product Name */}
-            <h3 className="text-base text-zinc-900 font-medium tracking-tight leading-snug">
-              <Link href={`/product/${id}`} className="focus:outline-none">
-                {/* Trik a11y: Link menutupi seluruh card */}
-                <span className="absolute inset-0 z-30" aria-hidden="true" />
-                {name}
-              </Link>
-            </h3>
-          </div>
-
-          {/* Price Badge */}
-          <div className="shrink-0 mt-1">
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-zinc-100 text-[13px] font-semibold text-zinc-900 tracking-wide">Rp {price.toLocaleString('id-ID')}</span>
-          </div>
-        </div>
+      <div className="space-y-1 px-0.5 sm:px-1">
+        <p className="text-[8px] sm:text-[9px] uppercase tracking-wider text-zinc-400">{product.category}</p>
+        <h3 className="font-serif text-sm sm:text-base lg:text-lg text-zinc-900 group-hover:text-zinc-600 transition-colors line-clamp-1">{product.nama}</h3>
+        <p className="text-xs sm:text-sm font-medium text-zinc-800">{formatPrice(product.harga)}</p>
       </div>
-    </div>
+    </Link>
   );
-};
-
-export default ProductCard;
+}

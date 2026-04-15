@@ -37,12 +37,6 @@ const faqData: FAQ[] = [
     category: 'Panduan',
   },
   {
-    q: 'Bisa kirim ke luar negeri nggak?',
-    a: 'Bisa! Saat ini kami kirim ke Singapura, Malaysia, dan Australia. Kalau kamu di negara lain, yuk chat customer service kami. Nanti kita hitung bareng estimasi biayanya.',
-    icon: <Globe size={20} strokeWidth={1.5} />,
-    category: 'Pengiriman',
-  },
-  {
     q: 'Gimana cara lacak pesanan?',
     a: 'Gampang banget! Setelah pesanan dikirim, kamu bakal dapet email berisi nomor resi dan link buat lacak posisi barangmu. Bisa dipantau real-time dari rumah aja.',
     icon: <Package size={20} strokeWidth={1.5} />,
