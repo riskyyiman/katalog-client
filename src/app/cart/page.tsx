@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag } from 'lucide-react';
 import { CartItem } from '@/types';
 
 export default function CartPage() {
@@ -17,11 +19,9 @@ export default function CartPage() {
     setCartItems(savedCart);
   }, []);
 
-  // Fungsi pembantu untuk simpan ke localStorage & Trigger Event
   const saveAndSync = (newCart: CartItem[]) => {
     setCartItems(newCart);
     localStorage.setItem('cart', JSON.stringify(newCart));
-    // Memberitahu Navbar untuk update angka di icon keranjang
     window.dispatchEvent(new CustomEvent('cartUpdated'));
   };
 
@@ -43,81 +43,132 @@ export default function CartPage() {
   const totalPrice = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
   const checkoutWhatsApp = () => {
-    const phoneNumber = '628123456789';
+    const phoneNumber = '6281226727458';
     let message = 'Halo Admin Kirana, saya ingin memesan daftar barang berikut:%0A%0A';
-
     cartItems.forEach((item, idx) => {
       message += `${idx + 1}. *${item.name}* (${item.size}) x${item.quantity} - Rp ${(item.price * item.quantity).toLocaleString('id-ID')}%0A`;
     });
-
     message += `%0A*Total Keseluruhan:* Rp ${totalPrice.toLocaleString('id-ID')}`;
     window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
   };
 
-  if (!isMounted) return <div className="min-h-screen bg-gray-50" />;
+  if (!isMounted) return <div className="min-h-screen bg-white" />;
 
   return (
-    <div className="bg-gray-50 min-h-screen py-24 md:py-32">
-      <div className="container mx-auto px-4 max-w-5xl">
-        <h1 className="text-3xl font-serif font-bold mb-8 text-gray-900 italic">Keranjang Belanja</h1>
+    <div className="bg-[#FCFCFC] min-h-screen pt-10 md:pt-30">
+      <div className="container mx-auto px-4 max-w-6xl">
+        {/* Header Section */}
+        <div className="flex flex-col mb-12">
+          <Link href="/katalog" className="flex items-center gap-2 text-zinc-400 hover:text-zinc-900 transition-colors mb-4 group w-fit">
+            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="text-xs uppercase tracking-widest font-medium">Kembali Belanja</span>
+          </Link>
+          <h1 className="text-4xl md:text-5xl font-serif italic text-zinc-900">
+            Keranjang <span className="text-zinc-400 font-light">Anda</span>
+          </h1>
+        </div>
 
         {cartItems.length === 0 ? (
-          <div className="bg-white p-12 rounded-2xl shadow-sm text-center border border-gray-100">
-            <div className="text-6xl mb-4">🛍️</div>
-            <p className="text-gray-500 mb-6 text-lg">Keranjang kamu masih kosong nih.</p>
-            <Link href="/katalog" className="inline-block bg-zinc-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-600 transition-all shadow-lg">
-              Mulai Belanja
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white border border-zinc-100 rounded-3xl p-16 text-center shadow-sm">
+            <div className="w-20 h-20 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <ShoppingBag className="text-zinc-300" size={32} />
+            </div>
+            <h2 className="text-xl font-medium text-zinc-900 mb-2">Keranjang Anda Kosong</h2>
+            <p className="text-zinc-500 mb-8 max-w-xs mx-auto text-sm leading-relaxed">Sepertinya Anda belum menambahkan koleksi apapun ke dalam keranjang.</p>
+            <Link href="/katalog" className="inline-block bg-zinc-900 text-white px-10 py-4 rounded-full text-xs uppercase tracking-[0.2em] font-bold hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-200">
+              Lihat Koleksi Terbaru
             </Link>
-          </div>
+          </motion.div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
             {/* List Item */}
-            <div className="lg:col-span-2 space-y-4">
-              {cartItems.map((item, index) => (
-                <div key={`${item.id}-${index}`} className="bg-white p-4 rounded-2xl shadow-sm flex gap-4 items-center border border-gray-50">
-                  <div className="relative w-24 h-24 shrink-0 overflow-hidden rounded-xl">
-                    <Image src={item.image} alt={item.name} fill className="object-cover" />
-                  </div>
+            <div className="lg:col-span-8 space-y-6">
+              <div className="hidden md:grid grid-cols-12 pb-4 border-b border-zinc-100 text-[10px] uppercase tracking-widest text-zinc-400 font-bold px-2">
+                <div className="col-span-6">Produk</div>
+                <div className="col-span-3 text-center">Jumlah</div>
+                <div className="col-span-3 text-right">Total</div>
+              </div>
 
-                  <div className="flex-1">
-                    <h3 className="font-bold text-gray-900 leading-tight">{item.name}</h3>
-                    <p className="text-xs text-gray-400 uppercase tracking-wider mt-1">Ukuran: {item.size}</p>
-                    <p className="font-bold text-indigo-600 mt-2">Rp {item.price.toLocaleString('id-ID')}</p>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-3">
-                    <button onClick={() => removeItem(index)} className="text-gray-300 hover:text-red-500 transition-colors">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-
-                    <div className="flex items-center border border-gray-100 rounded-lg overflow-hidden bg-gray-50">
-                      <button onClick={() => updateQuantity(index, 'dec')} className="px-3 py-1 hover:bg-gray-200 text-gray-600">
-                        -
-                      </button>
-                      <span className="px-3 font-medium text-sm w-8 text-center">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(index, 'inc')} className="px-3 py-1 hover:bg-gray-200 text-gray-600">
-                        +
-                      </button>
+              <AnimatePresence mode="popLayout">
+                {cartItems.map((item, index) => (
+                  <motion.div
+                    key={`${item.id}-${index}`}
+                    layout
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-zinc-50 flex flex-col md:grid md:grid-cols-12 items-center gap-6 group"
+                  >
+                    {/* Image & Info */}
+                    <div className="flex items-center gap-4 md:col-span-6 w-full">
+                      <div className="relative w-20 h-24 md:w-24 md:h-32 shrink-0 overflow-hidden rounded-xl bg-zinc-100">
+                        <Image src={item.image} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-zinc-900 text-sm md:text-base leading-tight mb-1">{item.name}</h3>
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-wider mb-2 font-medium">Size: {item.size}</p>
+                        <button onClick={() => removeItem(index)} className="flex items-center gap-1.5 text-zinc-300 hover:text-red-500 transition-colors text-[10px] uppercase font-bold tracking-tighter">
+                          <Trash2 size={12} /> Hapus
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+
+                    {/* Quantity Control */}
+                    <div className="flex justify-center md:col-span-3 w-full">
+                      <div className="flex items-center border border-zinc-100 rounded-full px-2 py-1 bg-zinc-50/50">
+                        <button onClick={() => updateQuantity(index, 'dec')} className="p-2 hover:text-zinc-900 text-zinc-400 transition-colors">
+                          <Minus size={14} />
+                        </button>
+                        <span className="px-4 font-bold text-sm w-10 text-center text-zinc-800">{item.quantity}</span>
+                        <button onClick={() => updateQuantity(index, 'inc')} className="p-2 hover:text-zinc-900 text-zinc-400 transition-colors">
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Price */}
+                    <div className="md:col-span-3 text-right w-full">
+                      <p className="font-bold text-zinc-900">Rp {(item.price * item.quantity).toLocaleString('id-ID')}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
 
-            {/* Ringkasan Pesanan */}
-            <div className="lg:col-span-1">
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-28">
-                <h2 className="text-xl font-bold mb-6 font-serif italic">Ringkasan Pesanan</h2>
-                <div className="flex justify-between mb-4 pb-4 border-b border-gray-50">
-                  <span className="text-gray-500 text-sm">Total Harga</span>
-                  <span className="font-bold text-lg text-zinc-900">Rp {totalPrice.toLocaleString('id-ID')}</span>
+            {/* Summary Sidebar */}
+            <div className="lg:col-span-4">
+              <div className="bg-zinc-900 text-white p-8 rounded-[2.5rem] shadow-2xl sticky top-32 overflow-hidden">
+                {/* Dekorasi Background */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+
+                <h2 className="text-2xl font-serif italic mb-8 relative z-10">
+                  Ringkasan <br />
+                  Pesanan
+                </h2>
+
+                <div className="space-y-4 mb-8 relative z-10">
+                  <div className="flex justify-between text-zinc-400 text-xs uppercase tracking-[0.2em]">
+                    <span>Subtotal</span>
+                    <span>Rp {totalPrice.toLocaleString('id-ID')}</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400 text-xs uppercase tracking-[0.2em]">
+                    <span>Pengiriman</span>
+                    <span className="italic text-[10px]">Dihitung saat checkout</span>
+                  </div>
+                  <div className="pt-6 border-t border-white/10 flex justify-between items-end">
+                    <span className="text-sm font-medium">Total Estimasi</span>
+                    <span className="text-2xl font-bold">Rp {totalPrice.toLocaleString('id-ID')}</span>
+                  </div>
                 </div>
-                <p className="text-[10px] text-gray-400 mb-6 italic">*Belum termasuk ongkos kirim</p>
-                <button onClick={checkoutWhatsApp} className="w-full bg-[#25D366] text-white py-4 rounded-xl font-bold hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-xl shadow-green-100">
-                  Checkout via WhatsApp
+
+                <button
+                  onClick={checkoutWhatsApp}
+                  className="w-full bg-white text-zinc-900 py-5 rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-zinc-200 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                >
+                  Checkout Ke WhatsApp
                 </button>
+
+                <p className="text-[9px] text-zinc-500 mt-6 text-center uppercase tracking-widest leading-relaxed">Dengan menekan tombol checkout, pesanan akan diteruskan langsung ke WhatsApp Admin Kirana.</p>
               </div>
             </div>
           </div>
