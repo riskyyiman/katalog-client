@@ -105,7 +105,7 @@ export default function EditorialBlogPage() {
   return (
     <div className="min-h-screen bg-[#FDFDFD] text-zinc-900 selection:bg-zinc-200">
       {/* HEADER EDITORIAL RESMI */}
-      <header className="px-4 sm:px-6 lg:px-16 pt-32 pb-12 max-w-360 mx-auto">
+      <header className="px-4 sm:px-6 lg:px-16 pt-15 md:pt-28 pb-5 max-w-360 mx-auto">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between border-b border-zinc-200 pb-8 gap-8">
           <motion.h1 initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, ease: 'easeOut' }} className="text-6xl md:text-8xl lg:text-[9rem] font-serif leading-none tracking-tighter">
             Jurnal<span className="italic font-light text-zinc-400">.</span>

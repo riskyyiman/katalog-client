@@ -25,10 +25,10 @@ export default function CategoryPage() {
     const fetchCategoryProducts = async () => {
       setLoading(true);
       try {
-        //  Ambil data asli dari API Backend Express kamu
+        //  Ambil data asli dari API Backend Express
         const response = await api.get('/products');
 
-        // Logika Filter Spesial (Tetap dipertahankan dari kode lama)
+        // Logika Filter Spesial
         let filtered = response.data.filter((item: Product) => {
           const dbCategory = item.category.toLowerCase();
           const urlParam = slug.toLowerCase();
@@ -39,7 +39,7 @@ export default function CategoryPage() {
           return dbCategory === urlParam;
         });
 
-        // 3. Logika Sorting
+        // Logika Sorting
         if (sortBy === 'termurah') {
           filtered.sort((a: Product, b: Product) => a.harga - b.harga);
         } else if (sortBy === 'termahal') {
@@ -62,18 +62,18 @@ export default function CategoryPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Premium Header Section */}
+      {/* Header Section */}
       <div className="bg-zinc-50 py-16 md:py-24 border-b border-zinc-100">
         <div className="container mx-auto px-6 max-w-7xl flex flex-col items-center text-center">
           <nav className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 mb-6 flex gap-2">
-            <Link href="/" className="hover:text-zinc-900 transition-colors">
-              Beranda
+            <Link href="/katalog" className="hover:text-zinc-900 transition-colors">
+              Kategori
             </Link>
             <span>/</span>
             <span className="text-zinc-900 font-bold uppercase">{categoryTitle}</span>
           </nav>
           <h1 className="text-4xl md:text-5xl font-serif text-zinc-900 mb-4 tracking-tight italic">Koleksi {categoryTitle}</h1>
-          <p className="text-sm text-zinc-500 max-w-md leading-relaxed font-light">Menampilkan pilihan produk {categoryTitle.toLowerCase()} terkurasi dari katalog resmi Kirana.</p>
+          <p className="text-sm text-zinc-500 max-w-md leading-relaxed font-light">Menampilkan pilihan produk {categoryTitle.toLowerCase()} dari katalog resmi Kirana.</p>
         </div>
       </div>
 
@@ -92,7 +92,7 @@ export default function CategoryPage() {
           </div>
         </div>
 
-        {/* Product Grid / Loading State */}
+        {/* Product Grid  */}
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8">
             {[1, 2, 3, 4].map((n) => (

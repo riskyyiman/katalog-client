@@ -60,7 +60,7 @@ export default async function BlogDetailPage({ params }: PageProps) {
         <article className="min-h-screen bg-[#FAFAF8] text-zinc-900 selection:bg-zinc-200/50 pb-20">
           {/* 1. EDITORIAL HEADER (Rata Tengah) */}
           <AnimatedSection>
-            <header className="pt-32 md:pt-40 pb-12 px-6 md:px-8 max-w-4xl mx-auto flex flex-col items-center text-center">
+            <header className="pt-10 md:pt-20 pb-12 px-6 md:px-8 max-w-4xl mx-auto flex flex-col items-center text-center">
               {/* Tombol Kembali (Tetap di kiri atas) */}
               <div className="w-full flex justify-start mb-12 md:mb-16">
                 <Link href="/blog" className="inline-flex items-center gap-3 text-xs font-medium uppercase tracking-[0.25em] text-zinc-500 hover:text-zinc-900 transition-colors group">

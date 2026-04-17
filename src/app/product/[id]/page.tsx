@@ -36,10 +36,8 @@ export default function ProductDetailPage() {
         const data: Product = response.data;
         setProduct(data);
 
-        // SOLUSI ERROR LN 72: Berikan fallback string kosong "" agar tidak undefined
         setMainImage(data.image_url || data.gambar || '');
 
-        // SOLUSI ERROR LN 73: Pastikan ada nilai string yang valid
         if (data.sizes && data.sizes.length > 0) {
           setSelectedSize(data.sizes[0]);
         } else {
@@ -116,8 +114,8 @@ export default function ProductDetailPage() {
     <div className="min-h-screen bg-white pt-24 md:pt-32 pb-20">
       <div className="container mx-auto px-6 max-w-7xl">
         <nav className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-zinc-400 mb-8">
-          <Link href="/" className="hover:text-zinc-900">
-            Beranda
+          <Link href="/katalog" className="hover:text-zinc-900">
+            Katalog
           </Link>
           <span>/</span>
           <Link href="/katalog" className="hover:text-zinc-900">

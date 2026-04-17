@@ -29,7 +29,7 @@ export default function FeaturedCollection({ products, loading }: { products: Pr
   };
 
   return (
-    <section className="py-32 px-6 lg:px-16 bg-[#FDFDFD]">
+    <section className="py-15 md:py-32 px-6 lg:px-16 bg-[#FDFDFD]">
       <motion.div initial="hidden" whileInView="show" viewport={{ once: true, margin: '-50px' }} variants={staggerContainer} className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-12 items-end mb-24">

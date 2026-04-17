@@ -6,19 +6,16 @@ import { fadeUp, staggerContainer, letterSpace, imageReveal } from '@/lib/animat
 
 export default function HeroSection() {
   return (
-    <section className="relative min-h-[90vh] flex items-center pt-24 overflow-hidden bg-[#FDFDFD]">
+    <section className="relative min-h-[90vh] flex items-center pt-10 overflow-hidden bg-[#FDFDFD]">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[18vw] font-serif font-black text-zinc-100/80 select-none z-0">KIRANA</div>
 
       <div className="container mx-auto px-6 lg:px-16 z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           <motion.div variants={staggerContainer} initial="hidden" animate="show" className="lg:col-span-5 order-2 lg:order-1">
-            <motion.div variants={fadeUp} className="flex items-center gap-4 mb-6">
-              <div className="flex items-center gap-4 mb-6">
-                <span className="w-8 h-px bg-zinc-400"></span>
-                <div className="relative">
-                  <span className="text-[10px]  md:text-[15px] tracking-[0.4em] uppercase text-zinc-400 font-medium px-3">Temukan Gayamu, Mulai Hari Ini</span>
-                </div>
-              </div>
+            <motion.div variants={fadeUp} className="flex items-center gap-3 md:gap-4 mb-4 md:mb-6">
+              <span className="w-6 md:w-8 h-px bg-zinc-400 shrink-0"></span>
+
+              <span className="text-[10px] md:text-[15px] tracking-[0.15em] md:tracking-[0.4em] uppercase text-zinc-400 font-medium leading-snug md:leading-normal">Temukan Gayamu, Mulai Hari Ini</span>
             </motion.div>
 
             <motion.h1 variants={letterSpace} className="text-6xl md:text-7xl lg:text-8xl font-serif leading-[0.9] mb-8 tracking-tighter text-zinc-900">
@@ -30,8 +27,8 @@ export default function HeroSection() {
               Koleksi fashion premium yang nyaman dipakai sehari-hari. Dari desain lokal berkualitas untuk kamu yang ingin tampil maksimal.
             </motion.p>
 
-            <motion.div variants={fadeUp} className="flex items-center gap-8">
-              <Link href="/katalog" className="group relative px-10 py-5 bg-zinc-900 text-white text-[10px] uppercase tracking-widest overflow-hidden rounded-sm transition-all duration-300">
+            <motion.div variants={fadeUp} className="w-full flex items-center gap-8">
+              <Link href="/katalog" className="group relative w-full md:w-auto flex justify-center px-10 py-5 bg-zinc-900 text-white text-[10px] uppercase tracking-widest overflow-hidden rounded-sm transition-all duration-300">
                 <span className="relative z-10">Lihat Koleksi</span>
                 <div className="absolute inset-0 bg-zinc-700 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               </Link>

@@ -5,7 +5,7 @@ import { fadeUp } from '@/lib/animations';
 
 export default function BrandEthos() {
   return (
-    <section className="relative md:py-5 px-6 lg:px-16 flex items-center justify-center bg-[#FDFDFD] overflow-hidden border-t border-zinc-50">
+    <section className="relative md:py-5 mb-5 px-6 lg:px-16 flex items-center justify-center bg-[#FDFDFD] overflow-hidden border-t border-zinc-50">
       {/* Elemen Dekoratif samar di latar belakang (Opsional untuk tekstur) */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none select-none flex items-center justify-center">
         <span className="text-[30vw] font-serif font-black tracking-tighter text-zinc-900">Ethos</span>

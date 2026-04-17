@@ -76,7 +76,7 @@ export default function KatalogPage() {
   return (
     <div className="min-h-screen bg-[#FDFDFD] text-zinc-900 selection:bg-zinc-100">
       {/* HERO SECTION */}
-      <section className="relative px-4 sm:px-6 lg:px-16 pt-24 sm:pt-28 lg:pt-32 pb-12 lg:pb-16 border-b border-zinc-100 bg-white">
+      <section className="relative px-4 sm:px-6 pt-12 lg:px-16 sm:pt-28 lg:pt-20 pb-12 lg:pb-16 border-b border-zinc-100 bg-white">
         <div className="max-w-7xl mx-auto">
           <motion.div initial="hidden" animate="show" variants={staggerContainer} className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
             <div className="max-w-2xl">
