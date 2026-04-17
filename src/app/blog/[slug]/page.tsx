@@ -1,165 +1,202 @@
-// src/app/blog/[slug]/page.tsx
 import { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Calendar, Clock, ArrowLeft, Share2, Tag } from 'lucide-react';
+import { Calendar, Clock, ArrowLeft, MoveRight } from 'lucide-react';
+import { getArticleBySlug, getRelatedArticles } from '@/lib/mock-data/articles';
+import ReadingProgressBar from '@/components/blog/ReadingProgressBar';
+import StickyShareButton from '@/components/blog/StickyShareButton';
+import { AnimatedPage, AnimatedSection } from '@/components/blog/AnimatedPage';
 
-// Data artikel - Pastikan data ini sinkron dengan blog/page.tsx
-const articles = [
-  {
-    slug: 'seni-memilih-bahan-katun',
-    title: 'Seni Memilih Bahan Katun Premium untuk Cuaca Tropis',
-    category: 'Tips & Trick',
-    date: '08 April 2026',
-    image: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?q=80',
-    content: `
-      <p>Memilih pakaian untuk cuaca tropis seperti di Indonesia bukan hanya soal gaya, tapi soal kenyamanan bernapas bagi kulit Anda. Bahan katun telah lama menjadi primadona, namun tidak semua katun diciptakan sama.</p>
-      <h3>Kenapa Katun Premium Berbeda?</h3>
-      <p>Katun premium seperti Combed 30s atau Supima memiliki serat yang lebih panjang dan halus. Hal ini memungkinkan sirkulasi udara yang jauh lebih baik dibandingkan bahan sintetis.</p>
-      <p>Teksturnya yang lembut juga mengurangi risiko iritasi pada kulit sensitif saat berkeringat. Inilah alasan mengapa investasi pada material berkualitas adalah hal mutlak bagi lemari pakaian Anda.</p>
-      <blockquote>"Kenyamanan adalah kunci utama dari kepercayaan diri. Memilih material yang tepat adalah langkah pertama."</blockquote>
-      <p>Di Kirana, kami memastikan setiap helai kain telah melewati uji daya serap keringat agar Anda tetap merasa segar meski beraktivitas di bawah terik matahari seharian.</p>
-    `,
-  },
-  {
-    slug: 'eksplorasi-warna-bumi',
-    title: 'Eksplorasi Warna Bumi: Koleksi Terbaru Nusantara Series',
-    category: 'Koleksi',
-    date: '05 April 2026',
-    image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80',
-    content: `
-      <p>Warna-warna tanah menghadirkan kehangatan dan kedalaman yang tak tertandingi. Koleksi Nusantara Series kami terinspirasi dari kekayaan alam Indonesia, mulai dari pegunungan hingga pesisir pantai.</p>
-      <h3>Palet Warna Musim Ini</h3>
-      <p>Dari cokelat tanah (terracotta) hingga hijau daun (sage green), setiap warna dipilih untuk melengkapi tone kulit Asia dan mudah dipadukan dengan berbagai gaya harian.</p>
-    `,
-  },
-  {
-    slug: 'tren-desain-minimalis',
-    title: 'Mengapa Desain Minimalis Menjadi Tren Abadi di Indonesia',
-    category: 'Editorial',
-    date: '01 April 2026',
-    image: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?q=80',
-    content: `
-      <p>"Less is more" bukan sekadar slogan. Desain minimalis menawarkan fleksibilitas dan keabadian yang sulit ditandingi oleh tren cepat yang datang dan pergi dalam hitungan bulan.</p>
-      <h3>Fungsi Menemui Estetika</h3>
-      <p>Di tengah hiruk pikuk perkotaan, pakaian minimalis menjadi oase ketenangan. Tidak berlebihan, namun tetap berkarakter kuat melalui potongan siluet yang presisi.</p>
-    `,
-  },
-];
+interface PageProps {
+  params: Promise<{ slug: string }>;
+}
 
-// 1. Perbaikan generateMetadata (Async Params)
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const article = articles.find((a) => a.slug === slug);
-  if (!article) return { title: 'Not Found' };
+  const article = getArticleBySlug(slug);
+
+  if (!article) {
+    return {
+      title: 'Artikel Tidak Ditemukan | Kirana',
+      description: 'Artikel yang Anda cari tidak tersedia.',
+    };
+  }
+
+  const description =
+    article.content
+      .substring(0, 150)
+      .replace(/<[^>]+>/g, '')
+      .trim() + '...';
 
   return {
-    title: `${article.title} - Kirana Journal`,
-    description: article.title,
+    title: `${article.title} | Jurnal Kirana`,
+    description,
+    openGraph: {
+      title: article.title,
+      description,
+      images: [{ url: article.image }],
+      type: 'article',
+    },
   };
 }
 
-// 2. Blog Detail Page Component
-export default async function BlogDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function BlogDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const article = articles.find((a) => a.slug === slug);
+  const article = getArticleBySlug(slug);
 
   if (!article) {
     notFound();
   }
 
+  const relatedArticles = getRelatedArticles(slug, 2);
+
   return (
-    <article className="min-h-screen bg-white pb-24 selection:bg-zinc-100">
-      {/* --- HEADER --- */}
-      <header className="relative pt-32 pb-16 px-6 lg:px-16 bg-white border-b border-zinc-50">
-        <div className="max-w-4xl mx-auto text-center">
-          <Link href="/blog" className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-zinc-900 transition-colors mb-10 group">
-            <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform duration-300" />
-            Kembali ke Journal
-          </Link>
+    <>
+      <ReadingProgressBar />
+      <StickyShareButton title={article.title} slug={article.slug} />
 
-          <div className="space-y-6">
-            <div className="flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-              <span className="text-zinc-900 border-b border-zinc-900 pb-0.5">{article.category}</span>
-              <span className="w-1 h-1 bg-zinc-200 rounded-full"></span>
-              <div className="flex items-center gap-1.5">
-                <Calendar size={12} />
-                <span>{article.date}</span>
+      <AnimatedPage>
+        <article className="min-h-screen bg-[#FAFAF8] text-zinc-900 selection:bg-zinc-200/50 pb-20">
+          {/* 1. EDITORIAL HEADER (Rata Tengah) */}
+          <AnimatedSection>
+            <header className="pt-32 md:pt-40 pb-12 px-6 md:px-8 max-w-4xl mx-auto flex flex-col items-center text-center">
+              {/* Tombol Kembali (Tetap di kiri atas) */}
+              <div className="w-full flex justify-start mb-12 md:mb-16">
+                <Link href="/blog" className="inline-flex items-center gap-3 text-xs font-medium uppercase tracking-[0.25em] text-zinc-500 hover:text-zinc-900 transition-colors group">
+                  <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform duration-300" strokeWidth={1.5} />
+                  <span>Kembali ke Jurnal</span>
+                </Link>
               </div>
-              <span className="w-1 h-1 bg-zinc-200 rounded-full"></span>
-              <div className="flex items-center gap-1.5">
-                <Clock size={12} />
-                <span>5 min read</span>
-              </div>
-            </div>
 
-            <h1 className="text-4xl md:text-6xl font-serif leading-[1.1] text-zinc-900 tracking-tighter">{article.title}</h1>
-          </div>
-        </div>
-      </header>
-
-      {/* --- FEATURED IMAGE --- */}
-      <div className="max-w-5xl mx-auto px-6 -mt-10 mb-20">
-        <div className="relative aspect-video md:aspect-21/9 rounded-sm overflow-hidden shadow-2xl">
-          <Image src={article.image} alt={article.title} fill className="object-cover" sizes="(max-width: 1280px) 100vw, 1200px" priority />
-        </div>
-      </div>
-
-      {/* --- ARTICLE BODY --- */}
-      <div className="max-w-3xl mx-auto px-6 lg:px-0">
-        <div
-          className="prose prose-zinc prose-lg lg:prose-xl max-w-none 
-          prose-headings:font-serif prose-headings:font-medium prose-headings:tracking-tight prose-headings:text-zinc-900
-          prose-p:text-zinc-600 prose-p:leading-relaxed prose-p:font-light
-          prose-blockquote:italic prose-blockquote:text-zinc-500 prose-blockquote:border-l-zinc-200 prose-blockquote:font-serif prose-blockquote:text-2xl"
-          dangerouslySetInnerHTML={{ __html: article.content }}
-        />
-
-        {/* --- FOOTER ARTICLE --- */}
-        <div className="mt-20 pt-10 border-t border-zinc-100 flex flex-col sm:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-4">
-            <Tag size={16} className="text-zinc-300" />
-            <div className="flex gap-2">
-              {['Fashion', 'Lifestyle', 'Nusantara'].map((tag) => (
-                <span key={tag} className="text-[10px] font-medium uppercase tracking-widest text-zinc-400 border border-zinc-100 px-3 py-1 rounded-full">
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <button className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-zinc-900 hover:text-zinc-500 transition-colors duration-300">
-            <Share2 size={16} />
-            Bagikan Cerita
-          </button>
-        </div>
-      </div>
-
-      {/* --- RELATED STORIES --- */}
-      <section className="max-w-7xl mx-auto px-6 lg:px-16 mt-32">
-        <div className="flex items-center justify-between mb-12 border-b border-zinc-100 pb-6">
-          <h3 className="text-2xl font-serif italic text-zinc-900 font-medium">Cerita Lainnya</h3>
-          <Link href="/blog" className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 hover:text-zinc-900 transition-colors">
-            Lihat Semua
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          {articles
-            .filter((a) => a.slug !== slug)
-            .slice(0, 2)
-            .map((relatedArticle) => (
-              <Link key={relatedArticle.slug} href={`/blog/${relatedArticle.slug}`} className="group">
-                <div className="relative aspect-video bg-zinc-100 rounded-sm overflow-hidden mb-6 shadow-sm group-hover:shadow-md transition-shadow">
-                  <Image src={relatedArticle.image} alt={relatedArticle.title} fill className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out" />
+              {/* Meta Info */}
+              <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] font-medium uppercase tracking-[0.2em] text-zinc-500 mb-6">
+                <span className="text-zinc-900 bg-zinc-100 px-3 py-1 rounded-full">{article.category}</span>
+                <span className="w-1 h-1 rounded-full bg-zinc-300"></span>
+                <div className="flex items-center gap-2">
+                  <Calendar size={14} strokeWidth={1.5} />
+                  <span>{article.date}</span>
                 </div>
-                <h4 className="font-serif text-xl text-zinc-900 group-hover:text-zinc-500 transition-colors leading-snug">{relatedArticle.title}</h4>
-                <p className="text-[9px] uppercase tracking-wider text-zinc-400 mt-3 font-bold">{relatedArticle.category}</p>
-              </Link>
-            ))}
-        </div>
-      </section>
-    </article>
+                <span className="w-1 h-1 rounded-full bg-zinc-300"></span>
+                <div className="flex items-center gap-2">
+                  <Clock size={14} strokeWidth={1.5} />
+                  <span>{article.readingTime || '5 Menit'}</span>
+                </div>
+              </div>
+
+              {/* Judul Utama */}
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-normal leading-[1.1] text-zinc-950 tracking-tight mb-8">{article.title}</h1>
+
+              {/* Penulis */}
+              <div className="flex items-center gap-3 text-zinc-500 text-sm font-light">
+                <div className="w-10 h-10 rounded-full bg-zinc-200 overflow-hidden flex items-center justify-center">
+                  <span className="font-serif text-zinc-500">K</span>
+                </div>
+                <div>
+                  Oleh <span className="font-medium text-zinc-900">Tim Editorial Kirana</span>
+                </div>
+              </div>
+            </header>
+          </AnimatedSection>
+
+          {/* 2. GAMBAR UTAMA (Breakout Layout - Lebih Lebar dari Teks) */}
+          <AnimatedSection delay={0.1}>
+            <div className="max-w-6xl mx-auto px-4 md:px-6 lg:px-8 mb-16 md:mb-24">
+              <div className="relative w-full bg-zinc-100 overflow-hidden rounded-xl md:rounded-2xl shadow-sm">
+                {/* Mobile: Kotak | Desktop: Lebar Sinematik */}
+                <div className="relative aspect-square md:aspect-video lg:aspect-21/9">
+                  <Image src={article.image} alt={article.title} fill className="object-cover" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 90vw, 1200px" priority />
+                </div>
+              </div>
+            </div>
+          </AnimatedSection>
+
+          {/* 3. KONTEN ARTIKEL */}
+          <AnimatedSection delay={0.2}>
+            <div className="max-w-3xl mx-auto px-6 md:px-8 lg:px-0">
+              <div
+                className="prose prose-zinc prose-lg md:prose-xl max-w-none
+                  /* Teks Dasar */
+                  prose-p:text-zinc-800 prose-p:leading-[1.85] prose-p:font-light prose-p:mb-8
+                  prose-a:text-zinc-950 prose-a:no-underline prose-a:border-b prose-a:border-zinc-300 hover:prose-a:border-zinc-950 transition-all
+                  
+                  /* Heading / Subjudul */
+                  prose-headings:font-serif prose-headings:text-zinc-950 prose-headings:tracking-tight prose-headings:mt-16 prose-headings:mb-6
+                  prose-h2:text-3xl md:prose-h2:text-4xl prose-h2:font-medium prose-h2:border-b prose-h2:border-zinc-200 prose-h2:pb-4
+                  prose-h3:text-2xl md:prose-h3:text-3xl prose-h3:font-normal
+                  
+                  /* Efek Drop Cap & Lead Paragraph (Huruf pertama besar) */
+                  prose-p:first-of-type:text-zinc-900 prose-p:first-of-type:text-xl md:prose-p:first-of-type:text-2xl prose-p:first-of-type:leading-relaxed
+                  prose-p:first-of-type:first-letter:text-7xl md:prose-p:first-of-type:first-letter:text-8xl
+                  prose-p:first-of-type:first-letter:font-serif prose-p:first-of-type:first-letter:text-zinc-950
+                  prose-p:first-of-type:first-letter:float-left prose-p:first-of-type:first-letter:mr-4
+                  prose-p:first-of-type:first-letter:mt-2 prose-p:first-of-type:first-letter:leading-[0.8]
+                  
+                  /* Blockquote (Kutipan) */
+                  prose-blockquote:font-serif prose-blockquote:text-2xl md:prose-blockquote:text-3xl
+                  prose-blockquote:text-zinc-900 prose-blockquote:font-light prose-blockquote:italic
+                  prose-blockquote:border-l-0 prose-blockquote:relative prose-blockquote:pl-0 prose-blockquote:my-16
+                  prose-blockquote:before:content-['\201C'] prose-blockquote:before:text-8xl prose-blockquote:before:text-zinc-200 prose-blockquote:before:absolute prose-blockquote:before:-top-10 prose-blockquote:before:-left-6
+                  
+                  /* Styling lainnya */
+                  prose-li:text-zinc-800 prose-li:font-light
+                  prose-strong:text-zinc-950 prose-strong:font-medium
+                  prose-img:rounded-xl prose-img:shadow-lg"
+                dangerouslySetInnerHTML={{ __html: article.content }}
+              />
+
+              {/* Tags & Footer Artikel */}
+              <div className="mt-20 pt-10 border-t border-zinc-200 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex flex-wrap gap-2">
+                  {(article.tags || ['Gaya Hidup', 'Esensial', 'Mode']).map((tag) => (
+                    <span
+                      key={tag}
+                      className="text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-600 bg-white px-4 py-2 rounded-full border border-zinc-200 shadow-sm hover:border-zinc-400 hover:text-zinc-900 transition-all duration-300 cursor-pointer"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <div className="text-sm text-zinc-400 font-light italic">Terakhir diperbarui pada {article.date}</div>
+              </div>
+            </div>
+          </AnimatedSection>
+
+          {/* 4. CERITA LAINNYA (Grid yang lebih bersih) */}
+          <AnimatedSection delay={0.3}>
+            <section className="max-w-6xl mx-auto px-6 md:px-8 mt-28 md:mt-36 pt-16 ">
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
+                <h3 className="text-3xl md:text-4xl font-serif font-light text-zinc-900 tracking-tight">Bacaan Selanjutnya</h3>
+                <Link href="/blog" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.25em] text-zinc-600 hover:text-zinc-900 group transition-all duration-300">
+                  Jelajahi Semua Jurnal
+                  <MoveRight size={14} className="group-hover:translate-x-2 transition-transform duration-300" strokeWidth={1.5} />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-14">
+                {relatedArticles.map((relatedArticle) => (
+                  <Link key={relatedArticle.slug} href={`/blog/${relatedArticle.slug}`} className="group block">
+                    <article className="space-y-6">
+                      <div className="relative bg-zinc-100 overflow-hidden aspect-4/3 rounded-xl">
+                        <Image src={relatedArticle.image} alt={relatedArticle.title} fill className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out" sizes="(max-width: 768px) 100vw, 50vw" />
+                      </div>
+                      <div className="space-y-3 px-2">
+                        <div className="flex items-center gap-3 text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-500">
+                          <span className="text-zinc-900">{relatedArticle.category}</span>
+                          <span className="w-1 h-1 bg-zinc-300 rounded-full"></span>
+                          <span>{relatedArticle.date}</span>
+                        </div>
+                        <h4 className="font-serif text-2xl md:text-3xl font-normal text-zinc-950 group-hover:text-zinc-600 transition-colors leading-[1.3]">{relatedArticle.title}</h4>
+                        <p className="text-zinc-600 text-sm font-light leading-relaxed line-clamp-2">{relatedArticle.content.substring(0, 120).replace(/<[^>]+>/g, '')}...</p>
+                      </div>
+                    </article>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </AnimatedSection>
+        </article>
+      </AnimatedPage>
+    </>
   );
 }
