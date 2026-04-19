@@ -46,9 +46,5 @@ pnpm dev
 Buka peramban (browser) web dan akses alamat berikut untuk melihat aplikasi yang sedang berjalan:
 http://localhost:3000
 
-📁 Struktur Direktori Utama
-/src - Berisi seluruh kode sumber utama aplikasi (komponen, halaman, utilitas, dll).
-/public - Direktori untuk aset statis seperti gambar, ikon, dan berkas yang dapat diakses publik secara langsung.
-
 🤝 Kontribusi
-Jika Anda ingin berkontribusi pada proyek ini, silakan buat fork dari repositori ini, buat branch fitur Anda, dan kirimkan Pull Request. Pastikan Anda telah menguji perubahan Anda dengan baik dan mengikuti standar kode (ESLint) yang telah diterapkan.
+by risky with love
