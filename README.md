@@ -27,7 +27,7 @@ Ikuti langkah-langkah di bawah ini untuk menjalankan proyek secara lokal di mesi
 1. **Kloning Repositori**
    Unduh salinan repositori ke mesin lokal Anda menggunakan Git:
    ```bash
-   git clone [https://github.com/riskyyiman/katalog-client.git](https://github.com/riskyyiman/katalog-client.git)
+   git clone https://github.com/riskyyiman/katalog-client.git
    ```
 2. **Masuk ke Direktori Proyek**
 Arahkan terminal Anda ke dalam folder proyek yang baru saja diunduh:
