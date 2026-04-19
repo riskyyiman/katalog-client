@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="katalogui.png" alt="Pratinjau Antarmuka Kirana Katalog Client" width="100%">
+</p>
+
 # Kirana Katalog Client
 
 Katalog Client adalah antarmuka web (frontend) untuk **Kirana Katalog**, sebuah aplikasi platform katalog pakaian premium. Proyek ini dirancang untuk memberikan pengalaman penelusuran produk yang elegan, responsif, dan cepat bagi pengguna. 
