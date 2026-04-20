@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
+import { CheckCircle2, X, ShoppingBag, ArrowRight } from 'lucide-react';
 import api from '@/lib/api';
 import { Product, CartItem } from '@/types';
 
@@ -23,6 +24,7 @@ export default function ProductDetailPage() {
   const [mainImage, setMainImage] = useState<string>('');
   const [showSizeGuide, setShowSizeGuide] = useState<boolean>(false);
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
+  const [showToast, setShowToast] = useState<boolean>(false);
   const [isMounted, setIsMounted] = useState(false);
 
   const sizes = ['S', 'M', 'L', 'XL', 'XXL'];
@@ -63,7 +65,9 @@ export default function ProductDetailPage() {
       alert('Silakan pilih ukuran terlebih dahulu');
       return;
     }
+
     setIsAddingToCart(true);
+
     const cartItem: CartItem = {
       id: product.id,
       name: product.nama || product.name || '',
@@ -72,18 +76,24 @@ export default function ProductDetailPage() {
       quantity,
       size: selectedSize,
     };
+
     const existingCart: CartItem[] = JSON.parse(localStorage.getItem('cart') || '[]');
     const existingItemIndex = existingCart.findIndex((item) => item.id === product.id && item.size === selectedSize);
+
     if (existingItemIndex !== -1) {
       existingCart[existingItemIndex].quantity += quantity;
       localStorage.setItem('cart', JSON.stringify(existingCart));
     } else {
       localStorage.setItem('cart', JSON.stringify([...existingCart, cartItem]));
     }
+
     setTimeout(() => {
       setIsAddingToCart(false);
+      setShowToast(true); // Munculkan notifikasi
       window.dispatchEvent(new CustomEvent('cartUpdated'));
-    }, 500);
+
+      setTimeout(() => setShowToast(false), 5000);
+    }, 600);
   };
 
   const handleWhatsApp = () => {
@@ -111,8 +121,9 @@ export default function ProductDetailPage() {
   const gallery = [product.image_url || product.gambar || '', ...(product.additional_images || [])];
 
   return (
-    <div className="min-h-screen bg-white pt-24 md:pt-32 pb-20">
+    <div className="min-h-screen bg-white pt-24 md:pt-32 pb-20 relative">
       <div className="container mx-auto px-6 max-w-7xl">
+        {/* Breadcrumbs */}
         <nav className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-zinc-400 mb-8">
           <Link href="/katalog" className="hover:text-zinc-900">
             Katalog
@@ -126,8 +137,8 @@ export default function ProductDetailPage() {
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
+          {/* Images Section */}
           <div className="space-y-4">
-            {/* SOLUSI WARNING: aspect-[4/5] menjadi aspect-4/5 */}
             <div className="relative aspect-4/5 bg-zinc-50 rounded-2xl overflow-hidden shadow-sm">
               <Image src={mainImage || '/placeholder.png'} alt={product.nama} fill priority className="object-cover hover:scale-105 transition-transform duration-700" />
             </div>
@@ -142,16 +153,17 @@ export default function ProductDetailPage() {
             )}
           </div>
 
+          {/* Info Section */}
           <div className="flex flex-col">
             <h1 className="text-4xl md:text-5xl font-serif italic text-zinc-900 mb-4">{product.nama}</h1>
             <div className="flex items-baseline gap-4 mb-6">
               <span className="text-3xl font-bold text-indigo-600">Rp {product.harga.toLocaleString('id-ID')}</span>
-              {/* SOLUSI ERROR old_price: Properti sudah didaftarkan di interface */}
               {product.old_price && <span className="text-lg text-zinc-300 line-through">Rp {product.old_price.toLocaleString('id-ID')}</span>}
             </div>
 
             <p className="text-zinc-500 text-sm leading-relaxed mb-8 font-light">{product.deskripsi || 'Busana nusantara eksklusif dengan material premium untuk kenyamanan Anda.'}</p>
 
+            {/* Size Picker */}
             <div className="mb-8">
               <div className="flex justify-between mb-4">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-900">Pilih Ukuran</span>
@@ -172,6 +184,7 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
+            {/* Quantity & CTA */}
             <div className="space-y-4 mb-10">
               <div className="flex items-center gap-4">
                 <div className="flex items-center border border-zinc-100 rounded-xl bg-zinc-50 overflow-hidden">
@@ -200,6 +213,7 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
+            {/* Tabs */}
             <div className="border-t border-zinc-100 pt-8">
               <div className="flex gap-8 mb-6 border-b border-zinc-50">
                 {(['deskripsi', 'spesifikasi'] as TabOption[]).map((tab) => (
@@ -214,10 +228,11 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
+      {/* MODAL: Size Guide */}
       <AnimatePresence>
         {showSizeGuide && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={() => setShowSizeGuide(false)}>
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white p-8 rounded-3xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm z-100 flex items-center justify-center p-6" onClick={() => setShowSizeGuide(false)}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white p-8 rounded-3xl max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-xl font-serif italic mb-6">Panduan Ukuran</h3>
               <div className="space-y-4 text-sm text-zinc-500">
                 <div className="flex justify-between border-b pb-2">
@@ -241,6 +256,50 @@ export default function ProductDetailPage() {
                 Tutup
               </button>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* notification toast */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+            className="fixed bottom-6 right-6 left-6 md:left-auto md:w-100 z-110"
+          >
+            <div className="bg-white border border-zinc-100 shadow-[0_20px_50px_rgba(0,0,0,0.15)] rounded-2xl overflow-hidden flex items-stretch">
+              <div className="relative w-24 bg-zinc-50 shrink-0">
+                <Image src={mainImage || '/placeholder.png'} alt="Added" fill className="object-cover" />
+              </div>
+
+              <div className="flex-1 p-4">
+                <div className="flex justify-between items-start mb-1">
+                  <div className="flex items-center gap-1.5 text-green-600">
+                    <CheckCircle2 size={14} strokeWidth={3} />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.15em]">Berhasil Ditambahkan</span>
+                  </div>
+                  <button onClick={() => setShowToast(false)} className="text-zinc-300 hover:text-zinc-900 transition-colors">
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <h4 className="text-sm font-bold text-zinc-900 line-clamp-1 mb-0.5">{product.nama}</h4>
+                <p className="text-[11px] text-zinc-500 mb-4 font-medium">
+                  Ukuran: {selectedSize} • Jumlah: {quantity}
+                </p>
+
+                <div className="flex gap-2">
+                  <Link href="/cart" className="flex-2 bg-zinc-900 text-white py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest text-center hover:bg-indigo-600 transition-all flex items-center justify-center gap-2">
+                    Ke Keranjang <ArrowRight size={12} />
+                  </Link>
+                  <button onClick={() => setShowToast(false)} className="flex-1 px-3 py-2.5 border border-zinc-100 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-zinc-50 transition-all">
+                    Nanti
+                  </button>
+                </div>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
