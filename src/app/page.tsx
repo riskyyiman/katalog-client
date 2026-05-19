@@ -9,7 +9,6 @@ import FeaturedCollection from '@/components/FeaturedCollection';
 import BrandEthos from '@/components/BrandEthos';
 
 export default function Home() {
-  // ambil data produk real dari backend melalui hook
   const { loading, products } = useProducts();
 
   return (
