@@ -5,9 +5,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { CheckCircle2, X, ShoppingBag, ArrowRight } from 'lucide-react';
+import { CheckCircle2, X, ShoppingBag, ArrowRight, LogIn } from 'lucide-react';
 import api from '@/lib/api';
 import { Product, CartItem } from '@/types';
+import { useCart } from '../../../Context/CartContext';
+import { useAuth } from '../../../Context/AuthContext'; // 1. Import hook Autentikasi
 
 type TabOption = 'deskripsi' | 'spesifikasi' | 'ulasan';
 
@@ -16,6 +18,9 @@ export default function ProductDetailPage() {
   const id = params?.id;
   const router = useRouter();
 
+  const { addToCart } = useCart();
+  const { user } = useAuth(); // 2. Ambil state user global
+
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [quantity, setQuantity] = useState<number>(1);
@@ -23,6 +28,7 @@ export default function ProductDetailPage() {
   const [activeTab, setActiveTab] = useState<TabOption>('deskripsi');
   const [mainImage, setMainImage] = useState<string>('');
   const [showSizeGuide, setShowSizeGuide] = useState<boolean>(false);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false); // 3. State Modal Login
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
   const [showToast, setShowToast] = useState<boolean>(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -60,39 +66,38 @@ export default function ProductDetailPage() {
     if (type === 'inc' && quantity < product.stok) setQuantity(quantity + 1);
   };
 
-  const addToCart = () => {
+  const handleAddToCart = () => {
     if (!product || !selectedSize) {
       alert('Silakan pilih ukuran terlebih dahulu');
       return;
     }
 
+    // 4. INTERSEPTOR KEAMANAN: Jika user belum login, kunci fungsi & tampilkan modal promosi
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+
     setIsAddingToCart(true);
 
-    const cartItem: CartItem = {
+    const cartItem = {
       id: product.id,
       name: product.nama || product.name || '',
       price: product.harga || product.price || 0,
       image: mainImage,
       quantity,
       size: selectedSize,
+      stok: product.stok,
     };
 
-    const existingCart: CartItem[] = JSON.parse(localStorage.getItem('cart') || '[]');
-    const existingItemIndex = existingCart.findIndex((item) => item.id === product.id && item.size === selectedSize);
-
-    if (existingItemIndex !== -1) {
-      existingCart[existingItemIndex].quantity += quantity;
-      localStorage.setItem('cart', JSON.stringify(existingCart));
-    } else {
-      localStorage.setItem('cart', JSON.stringify([...existingCart, cartItem]));
-    }
+    const success = addToCart(cartItem as any, product.stok);
 
     setTimeout(() => {
       setIsAddingToCart(false);
-      setShowToast(true); // Munculkan notifikasi
-      window.dispatchEvent(new CustomEvent('cartUpdated'));
-
-      setTimeout(() => setShowToast(false), 5000);
+      if (success) {
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 5000);
+      }
     }, 600);
   };
 
@@ -140,13 +145,13 @@ export default function ProductDetailPage() {
           {/* Images Section */}
           <div className="space-y-4">
             <div className="relative aspect-4/5 bg-zinc-50 rounded-2xl overflow-hidden shadow-sm">
-              <Image src={mainImage || '/placeholder.png'} alt={product.nama} fill priority className="object-cover hover:scale-105 transition-transform duration-700" />
+              <Image src={mainImage || '/placeholder.png'} alt={product.nama} fill priority sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover hover:scale-105 transition-transform duration-700" />
             </div>
             {gallery.length > 1 && (
               <div className="flex gap-3 overflow-x-auto no-scrollbar">
                 {gallery.map((img, idx) => (
                   <button key={idx} onClick={() => setMainImage(img)} className={`relative w-20 h-24 rounded-lg overflow-hidden border-2 transition-all shrink-0 ${mainImage === img ? 'border-zinc-900 shadow-md' : 'border-transparent'}`}>
-                    <Image src={img || '/placeholder.png'} alt="thumb" fill className="object-cover" />
+                    <Image src={img || '/placeholder.png'} alt="thumb" fill sizes="80px" className="object-cover" />
                   </button>
                 ))}
               </div>
@@ -201,7 +206,7 @@ export default function ProductDetailPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <button
-                  onClick={addToCart}
+                  onClick={handleAddToCart}
                   disabled={isAddingToCart || product.stok === 0}
                   className="bg-zinc-900 text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-indigo-600 transition-all disabled:bg-zinc-200"
                 >
@@ -260,6 +265,46 @@ export default function ProductDetailPage() {
         )}
       </AnimatePresence>
 
+      {/* 5. MODAL BARU: Interseptor Login dengan Desain Profesional */}
+      <AnimatePresence>
+        {showAuthModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-zinc-900/70 backdrop-blur-md z-200 flex items-center justify-center p-4" onClick={() => setShowAuthModal(false)}>
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
+              className="bg-white p-8 md:p-10 rounded-[2.5rem] max-w-sm w-full shadow-2xl border border-zinc-100 text-center relative overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Ikon Aksen Elegan */}
+              <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <LogIn size={26} strokeWidth={1.5} />
+              </div>
+
+              {/* Teks Promosi Masuk */}
+              <h3 className="text-2xl font-serif italic text-zinc-900 mb-3">Langkah Terakhir</h3>
+              <p className="text-zinc-400 text-xs uppercase tracking-widest font-semibold mb-3">Autentikasi Diperlukan</p>
+              <p className="text-zinc-500 text-sm mb-8 font-light leading-relaxed px-2">Silakan masuk ke akun Kirana Anda terlebih dahulu untuk mulai menyimpan koleksi busana premium pilihan Anda ke dalam keranjang belanja.</p>
+
+              {/* Tombol Aksi */}
+              <div className="space-y-3">
+                <Link
+                  href="/login"
+                  className="w-full inline-flex items-center justify-center gap-2 bg-zinc-900 text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-indigo-600 active:scale-[0.99] transition-all shadow-md"
+                >
+                  <span>Masuk Sekarang</span>
+                  <ArrowRight size={14} />
+                </Link>
+                <button onClick={() => setShowAuthModal(false)} className="w-full py-3.5 bg-zinc-50 text-zinc-500 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-100 transition-colors">
+                  Kembali Melihat
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* notification toast */}
       <AnimatePresence>
         {showToast && (
@@ -271,7 +316,7 @@ export default function ProductDetailPage() {
           >
             <div className="bg-white border border-zinc-100 shadow-[0_20px_50px_rgba(0,0,0,0.15)] rounded-2xl overflow-hidden flex items-stretch">
               <div className="relative w-24 bg-zinc-50 shrink-0">
-                <Image src={mainImage || '/placeholder.png'} alt="Added" fill className="object-cover" />
+                <Image src={mainImage || '/placeholder.png'} alt="Added" fill sizes="96px" className="object-cover" />
               </div>
 
               <div className="flex-1 p-4">

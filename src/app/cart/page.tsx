@@ -5,85 +5,130 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag, X, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag, X, AlertTriangle, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
 import { CartItem } from '@/types';
+import { useCart } from '../../Context/CartContext';
+import { useAuth } from '../../Context/AuthContext'; // Import Auth global untuk Route Guarding
+import api from '@/lib/api';
 
 export default function CartPage() {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const { cart, updateQuantity, removeFromCart, clearCart } = useCart();
+  const { user, loading: authLoading, getIdToken } = useAuth(); // Ambil state login & fungsi token
+  const router = useRouter();
+
   const [isMounted, setIsMounted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // State loading saat checkout mutation
 
   // State Konfirmasi Hapus
   const [showConfirm, setShowConfirm] = useState(false);
-  const [itemIndexToDelete, setItemIndexToDelete] = useState<number | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<CartItem | null>(null);
 
   // State Toast Notifikasi
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  const router = useRouter();
-
+  // 1. ROUTE GUARDING: Cegah pengguna ilegal masuk ke halaman keranjang tanpa autentikasi
   useEffect(() => {
     setIsMounted(true);
-    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
-    setCartItems(savedCart);
-  }, []);
-
-  const saveAndSync = (newCart: CartItem[]) => {
-    setCartItems(newCart);
-    localStorage.setItem('cart', JSON.stringify(newCart));
-    window.dispatchEvent(new CustomEvent('cartUpdated'));
-  };
-
-  const updateQuantity = (index: number, type: 'inc' | 'dec') => {
-    const newCart = [...cartItems];
-    if (type === 'inc') {
-      newCart[index].quantity += 1;
-    } else if (type === 'dec' && newCart[index].quantity > 1) {
-      newCart[index].quantity -= 1;
+    if (!authLoading && !user) {
+      router.push('/login');
     }
-    saveAndSync(newCart);
-  };
+  }, [user, authLoading, router]);
 
-  // Fungsi untuk memicu modal konfirmasi
-  const triggerRemove = (index: number) => {
-    setItemIndexToDelete(index);
+  const triggerRemove = (item: CartItem) => {
+    setItemToDelete(item);
     setShowConfirm(true);
   };
 
-  // Fungsi eksekusi hapus setelah dikonfirmasi
   const confirmDelete = () => {
-    if (itemIndexToDelete !== null) {
-      const itemToRemove = cartItems[itemIndexToDelete];
-      const newCart = cartItems.filter((_, i) => i !== itemIndexToDelete);
-
-      saveAndSync(newCart);
-
-      // Tampilkan Toast
-      setToastMessage(`${itemToRemove.name} telah dihapus`);
+    if (itemToDelete) {
+      removeFromCart(itemToDelete.id, itemToDelete.size);
+      setToastMessage(`${itemToDelete.name} telah dihapus`);
       setShowToast(true);
-
-      // Reset state
       setShowConfirm(false);
-      setItemIndexToDelete(null);
-
-      // Sembunyikan toast otomatis
+      setItemToDelete(null);
       setTimeout(() => setShowToast(false), 3000);
     }
   };
 
-  const totalPrice = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const totalPrice = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
-  const checkoutWhatsApp = () => {
-    const phoneNumber = '6281226727458';
-    let message = 'Halo Admin Kirana, saya ingin memesan daftar barang berikut:%0A%0A';
-    cartItems.forEach((item, idx) => {
-      message += `${idx + 1}. *${item.name}* (${item.size}) x${item.quantity} - Rp ${(item.price * item.quantity).toLocaleString('id-ID')}%0A`;
-    });
-    message += `%0A*Total Keseluruhan:* Rp ${totalPrice.toLocaleString('id-ID')}`;
-    window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+  // 2. MODERN GRAPHQL INTEGRATION: Mengganti Axios REST lama dengan GraphQL Mutation terproteksi
+  const checkoutWhatsApp = async () => {
+    if (cart.length === 0 || isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      // Mengambil JWT Token terbaru dari Firebase untuk otorisasi backend
+      const token = await getIdToken();
+
+      // Susun string data items agar aman dikirim sebagai stringified JSON ke GraphQL
+      const variables = {
+        items: JSON.stringify(
+          cart.map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            size: item.size,
+          })),
+        ),
+        totalPrice: totalPrice,
+      };
+
+      // Tembak GraphQL Endpoint
+      const response = await api.post(
+        '/graphql',
+        {
+          query: `
+          mutation CreateNewOrder($items: String!, $totalPrice: Int!) {
+            createOrder(items: $items, totalPrice: $totalPrice) {
+              id
+            }
+          }
+        `,
+          variables: variables,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Mengirimkan bukti Web Security (Otorisasi Token)
+          },
+        },
+      );
+
+      // Periksa jika ada error internal dari GraphQL Resolver (seperti stok habis)
+      if (response.data.errors) {
+        throw new Error(response.data.errors[0].message);
+      }
+
+      // Jika database transaction sukses, teruskan instruksi ke WhatsApp Web
+      if (response.data.data.createOrder) {
+        const phoneNumber = '6281226727458';
+        let message = 'Halo Admin Kirana, saya ingin memesan daftar barang berikut:%0A%0A';
+        cart.forEach((item, idx) => {
+          message += `${idx + 1}. *${item.name}* (${item.size}) x${item.quantity} - Rp ${(item.price * item.quantity).toLocaleString('id-ID')}%0A`;
+        });
+        message += `%0A*Total Keseluruhan:* Rp ${totalPrice.toLocaleString('id-ID')}`;
+
+        clearCart();
+        window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+      }
+    } catch (error: any) {
+      console.error('Gagal memproses transaksi:', error);
+      alert(error.message || 'Terjadi kesalahan sistem saat memproses pesanan Anda.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  if (!isMounted) return <div className="min-h-screen bg-white" />;
+  // Tampilkan layar loading transisi jika status autentikasi belum siap
+  if (!isMounted || authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <Loader2 className="animate-spin text-zinc-400" size={24} />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#FCFCFC] min-h-screen pt-10 mb-10 md:pt-20 relative">
@@ -99,7 +144,7 @@ export default function CartPage() {
           </h1>
         </div>
 
-        {cartItems.length === 0 ? (
+        {cart.length === 0 ? (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white border border-zinc-100 rounded-3xl p-16 text-center shadow-sm">
             <div className="w-20 h-20 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <ShoppingBag className="text-zinc-300" size={32} />
@@ -120,7 +165,7 @@ export default function CartPage() {
               </div>
 
               <AnimatePresence mode="popLayout">
-                {cartItems.map((item, index) => (
+                {cart.map((item) => (
                   <motion.div
                     key={`${item.id}-${item.size}`}
                     layout
@@ -131,12 +176,12 @@ export default function CartPage() {
                   >
                     <div className="flex items-center gap-4 md:col-span-6 w-full">
                       <div className="relative w-20 h-24 md:w-24 md:h-32 shrink-0 overflow-hidden rounded-xl bg-zinc-100">
-                        <Image src={item.image} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                        <Image src={item.image} alt={item.name} fill sizes="(max-width: 768px) 80px, 96px" className="object-cover group-hover:scale-110 transition-transform duration-500" />
                       </div>
                       <div>
                         <h3 className="font-bold text-zinc-900 text-sm md:text-base leading-tight mb-1">{item.name}</h3>
                         <p className="text-[10px] text-zinc-400 uppercase tracking-wider mb-2 font-medium">Size: {item.size}</p>
-                        <button onClick={() => triggerRemove(index)} className="flex items-center gap-1.5 text-zinc-300 hover:text-red-500 transition-colors text-[10px] uppercase font-bold tracking-tighter">
+                        <button onClick={() => triggerRemove(item)} className="flex items-center gap-1.5 text-zinc-300 hover:text-red-500 transition-colors text-[10px] uppercase font-bold tracking-tighter">
                           <Trash2 size={12} /> Hapus
                         </button>
                       </div>
@@ -144,11 +189,11 @@ export default function CartPage() {
 
                     <div className="flex justify-center md:col-span-3 w-full">
                       <div className="flex items-center border border-zinc-100 rounded-full px-2 py-1 bg-zinc-50/50">
-                        <button onClick={() => updateQuantity(index, 'dec')} className="p-2 hover:text-zinc-900 text-zinc-400 transition-colors">
+                        <button onClick={() => updateQuantity(item.id, item.size, 'dec', (item as any).stok || 0)} className="p-2 hover:text-zinc-900 text-zinc-400 transition-colors">
                           <Minus size={14} />
                         </button>
                         <span className="px-4 font-bold text-sm w-10 text-center text-zinc-800">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(index, 'inc')} className="p-2 hover:text-zinc-900 text-zinc-400 transition-colors">
+                        <button onClick={() => updateQuantity(item.id, item.size, 'inc', (item as any).stok || 0)} className="p-2 hover:text-zinc-900 text-zinc-400 transition-colors">
                           <Plus size={14} />
                         </button>
                       </div>
@@ -162,6 +207,7 @@ export default function CartPage() {
               </AnimatePresence>
             </div>
 
+            {/* Sidebar Summary Ringkasan Belanja */}
             <div className="lg:col-span-4">
               <div className="bg-zinc-900 text-white p-8 rounded-[2.5rem] shadow-2xl sticky top-32 overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl" />
@@ -182,20 +228,35 @@ export default function CartPage() {
                     <span className="text-2xl font-bold">Rp {totalPrice.toLocaleString('id-ID')}</span>
                   </div>
                 </div>
+
                 <button
                   onClick={checkoutWhatsApp}
-                  className="w-full bg-white text-zinc-900 py-5 rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-zinc-200 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                  disabled={isSubmitting}
+                  className="w-full bg-white text-zinc-900 py-5 rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-zinc-200 transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:bg-zinc-700 disabled:text-zinc-400"
                 >
-                  Checkout Ke WhatsApp
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Mengamankan Stok...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Checkout Ke WhatsApp</span>
+                    </>
+                  )}
                 </button>
-                <p className="text-[9px] text-zinc-500 mt-6 text-center uppercase tracking-widest leading-relaxed">Pesanan akan diteruskan langsung ke WhatsApp Admin Kirana.</p>
+
+                <div className="mt-6 flex items-center justify-center gap-2 text-[9px] text-zinc-400 uppercase tracking-widest text-center leading-relaxed">
+                  <ShieldCheck size={12} className="text-indigo-400" />
+                  <span>GraphQL Encrypted & Secured Transaction</span>
+                </div>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Confirm Modal */}
+      {/* Confirm Hapus Modal */}
       <AnimatePresence>
         {showConfirm && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm z-200 flex items-center justify-center p-6" onClick={() => setShowConfirm(false)}>
@@ -205,7 +266,7 @@ export default function CartPage() {
               </div>
               <h3 className="text-xl font-bold text-zinc-900 mb-2">Hapus Produk?</h3>
               <p className="text-zinc-500 text-sm mb-8 leading-relaxed">
-                Apakah Anda yakin ingin menghapus <span className="font-bold text-zinc-800">{itemIndexToDelete !== null && cartItems[itemIndexToDelete]?.name}</span> dari keranjang?
+                Apakah Anda yakin ingin menghapus <span className="font-bold text-zinc-800">{itemToDelete?.name}</span> ({itemToDelete?.size}) dari keranjang?
               </p>
               <div className="flex gap-3">
                 <button onClick={() => setShowConfirm(false)} className="flex-1 py-4 bg-zinc-50 text-zinc-500 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-100 transition-all">

@@ -1,28 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CartItem } from '@/types';
-import { Search, ShoppingBag, Menu, X, ChevronDown } from 'lucide-react';
+import { Search, ShoppingBag, Menu, X, ChevronDown, User, LogOut, Shield } from 'lucide-react';
+import { useCart } from '../Context/CartContext';
+import { useAuth } from '../Context/AuthContext'; // Import AuthContext global
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [cartCount, setCartCount] = useState(0);
   const [isMobileCategoryOpen, setIsMobileCategoryOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false); // State dropdown desktop
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const pathname = usePathname();
+  const { cart } = useCart();
+  const { user, logout } = useAuth(); // Destructure status user & fungsi logout
+
+  // Hitung jumlah barang realtime untuk badge keranjang
+  const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   // Daftar kategori statis
   const categories = ['T-Shirt', 'Shirt', 'Outerwear', 'Pants', 'Aksesoris'];
-
-  // Fungsi untuk update jumlah keranjang dari localStorage
-  const updateCartBadge = () => {
-    const savedCart: CartItem[] = JSON.parse(localStorage.getItem('cart') || '[]');
-    const totalItems = savedCart.reduce((acc, item) => acc + item.quantity, 0);
-    setCartCount(totalItems);
-  };
 
   // Detect scroll untuk efek navbar
   useEffect(() => {
@@ -33,17 +34,23 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    updateCartBadge();
-    window.addEventListener('cartUpdated', updateCartBadge);
-    return () => window.removeEventListener('cartUpdated', updateCartBadge);
-  }, []);
-
-  // Auto-close mobile menu ketika rute berubah
+  // Auto-close menu ketika rute berubah
   useEffect(() => {
     setIsMobileMenuOpen(false);
     setIsMobileCategoryOpen(false);
+    setIsUserDropdownOpen(false);
   }, [pathname]);
+
+  // Close dropdown jika klik di luar elemen (Desktop)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Mencegah scroll pada body ketika mobile menu terbuka
   useEffect(() => {
@@ -125,15 +132,69 @@ const Navbar = () => {
               <Search size={18} strokeWidth={1.5} />
             </button>
 
+            {/* Ikon Keranjang dengan Badge Real-time */}
             <Link href="/cart" className="relative p-2 rounded-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 transition-all duration-300 group">
               <ShoppingBag size={18} strokeWidth={1.5} />
-              {cartCount > 0 && (
-                <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-0.5 -right-0.5 bg-zinc-800 text-white text-[9px] font-bold min-w-4 h-4 flex items-center justify-center rounded-full ring-2 ring-white">
-                  {cartCount > 9 ? '9+' : cartCount}
+              {totalItems > 0 && (
+                <motion.span
+                  key={totalItems}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -top-0.5 -right-0.5 bg-zinc-800 text-white text-[9px] font-bold min-w-4 h-4 flex items-center justify-center rounded-full ring-2 ring-white"
+                >
+                  {totalItems > 9 ? '9+' : totalItems}
                 </motion.span>
               )}
             </Link>
 
+            {/* INTEGRASI LOGIC: Akun Pengguna Dropdown / Login Button (Desktop) */}
+            <div className="hidden md:block relative" ref={dropdownRef}>
+              {user ? (
+                <>
+                  <button onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)} className="flex items-center gap-1 p-2 rounded-full text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 transition-all duration-300">
+                    <User size={18} strokeWidth={1.5} />
+                    <ChevronDown size={10} className={`transition-transform duration-300 ${isUserDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Dropdown Akun Eksklusif */}
+                  <AnimatePresence>
+                    {isUserDropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute right-0 mt-2 bg-white shadow-2xl border border-zinc-100 rounded-2xl py-3 min-w-60 overflow-hidden z-50"
+                      >
+                        <div className="px-5 py-2.5 border-b border-zinc-50 bg-zinc-50/50 mb-1.5">
+                          <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Akun Premium</p>
+                          <p className="text-xs font-semibold text-zinc-700 truncate mt-0.5">{user.email}</p>
+                        </div>
+                        <Link href="/orders-history" className="flex items-center gap-3 px-5 py-2.5 text-[11px] font-medium text-zinc-600 hover:text-zinc-800 hover:bg-zinc-50 transition-all">
+                          <Shield size={14} strokeWidth={1.5} />
+                          <span>Riwayat Pesanan</span>
+                        </Link>
+                        <button
+                          onClick={() => {
+                            logout();
+                            setIsUserDropdownOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-5 py-2.5 text-[11px] font-bold text-red-500 hover:bg-red-50/50 transition-all text-left"
+                        >
+                          <LogOut size={14} strokeWidth={2} />
+                          <span>Keluar Akun</span>
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
+              ) : (
+                <Link href="/login" className="ml-2 inline-flex items-center text-[10px] font-bold uppercase tracking-widest bg-zinc-950 text-white px-5 py-2.5 rounded-full hover:bg-zinc-800 transition-all shadow-sm active:scale-[0.98]">
+                  Masuk
+                </Link>
+              )}
+            </div>
+
+            {/* Menu Mobile Button */}
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden p-2 rounded-full text-zinc-800 hover:bg-zinc-100 transition-all duration-300" aria-label="Toggle Menu">
               {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -148,9 +209,20 @@ const Navbar = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3, ease: 'easeInOut' }}
-              className="md:hidden fixed inset-0 top-15.25 bg-white z-40 overflow-y-auto"
+              className="md:hidden fixed inset-0 top-15.25 bg-white z-40 flex flex-col justify-between"
             >
-              <div className="flex flex-col px-6 py-8 gap-2">
+              <div className="flex flex-col px-6 py-6 gap-1 overflow-y-auto">
+                {/* Tampilkan Info Akun Singkat di Mobile Menu Atas */}
+                {user && (
+                  <div className="mb-4 p-4 bg-zinc-50 border border-zinc-100 rounded-2xl flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center text-xs font-bold">{user.email?.charAt(0).toUpperCase()}</div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Logged In</p>
+                      <p className="text-xs font-medium text-zinc-700 truncate">{user.email}</p>
+                    </div>
+                  </div>
+                )}
+
                 {[
                   { name: 'Beranda', href: '/' },
                   { name: 'Katalog', href: '/katalog' },
@@ -159,14 +231,14 @@ const Navbar = () => {
                   <Link
                     key={item.name}
                     href={item.href}
-                    className={`py-4 text-base font-medium uppercase tracking-wide border-b border-zinc-100 transition-colors ${pathname === item.href ? 'text-zinc-800' : 'text-zinc-500 hover:text-zinc-800'}`}
+                    className={`py-3.5 text-base font-medium uppercase tracking-wide border-b border-zinc-100 transition-colors ${pathname === item.href ? 'text-zinc-800' : 'text-zinc-500 hover:text-zinc-800'}`}
                   >
                     {item.name}
                   </Link>
                 ))}
 
                 {/* Mobile Kategori Accordion */}
-                <div className="py-4 border-b border-zinc-100">
+                <div className="py-3.5 border-b border-zinc-100">
                   <button onClick={() => setIsMobileCategoryOpen(!isMobileCategoryOpen)} className="flex items-center justify-between w-full text-zinc-500 hover:text-zinc-800 transition-colors">
                     <span className="text-base font-medium uppercase tracking-wide">Kategori</span>
                     <motion.div animate={{ rotate: isMobileCategoryOpen ? 180 : 0 }} transition={{ duration: 0.3 }}>
@@ -178,7 +250,7 @@ const Navbar = () => {
                     {isMobileCategoryOpen && (
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-4 ml-4 flex flex-col gap-3 overflow-hidden">
                         {categories.map((cat) => (
-                          <Link key={cat} href={`/category/${cat.toLowerCase()}`} className="py-2 text-sm text-zinc-500 hover:text-zinc-800 transition-colors pl-2 border-l-2 border-transparent hover:border-zinc-800">
+                          <Link key={cat} href={`/category/${cat.toLowerCase()}`} className="py-1.5 text-sm text-zinc-500 hover:text-zinc-800 transition-colors pl-2 border-l-2 border-transparent hover:border-zinc-800">
                             {cat}
                           </Link>
                         ))}
@@ -196,16 +268,21 @@ const Navbar = () => {
                 </div>
               </div>
 
-              {/* Mobile Footer Links */}
-              <div className="mt-auto px-6 py-8 border-t border-zinc-100 flex flex-col gap-4">
-                <p className="text-[9px] font-medium text-zinc-400 uppercase tracking-wider">Ikuti Kami</p>
-                <div className="flex gap-6">
-                  <a href="#" className="text-sm text-zinc-500 hover:text-zinc-800 transition-colors">
-                    Instagram
-                  </a>
-                  <a href="#" className="text-sm text-zinc-500 hover:text-zinc-800 transition-colors">
-                    WhatsApp
-                  </a>
+              {/* Mobile Footer (Login / Logout action) */}
+              <div className="px-6 py-6 border-t border-zinc-100 bg-zinc-50/50 flex flex-col gap-4">
+                {user ? (
+                  <button onClick={() => logout()} className="w-full bg-red-500 text-white text-center py-4 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-600 transition-colors">
+                    Keluar dari Akun
+                  </button>
+                ) : (
+                  <Link href="/login" className="w-full bg-zinc-950 text-white text-center py-4 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-sm">
+                    Masuk ke Akun
+                  </Link>
+                )}
+                <div className="flex justify-center gap-6 text-[10px] text-zinc-400 uppercase tracking-widest mt-2 font-medium">
+                  <a href="#">Instagram</a>
+                  <span>•</span>
+                  <a href="#">WhatsApp</a>
                 </div>
               </div>
             </motion.div>

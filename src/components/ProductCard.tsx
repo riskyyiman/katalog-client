@@ -23,7 +23,8 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
       <Link href={`/product/${product.id}`} className="group block">
         <div className="flex gap-4 sm:gap-6 items-start bg-white border border-zinc-100 rounded-xl sm:rounded-2xl p-3 sm:p-4 hover:shadow-lg transition-all duration-300">
           <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 shrink-0 bg-zinc-100 rounded-lg sm:rounded-xl overflow-hidden">
-            <Image src={product.gambar} alt={product.nama} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+            {/* PERBAIKAN 1: Menambahkan properti sizes untuk tampilan List */}
+            <Image src={product.gambar} alt={product.nama} fill sizes="(max-width: 640px) 80px, (max-width: 768px) 96px, 128px" className="object-cover group-hover:scale-105 transition-transform duration-500" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[8px] sm:text-[9px] uppercase tracking-wider text-zinc-400 mb-0.5 sm:mb-1">{product.category}</p>
@@ -43,7 +44,8 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
   return (
     <Link href={`/product/${product.id}`} className="group block">
       <div className="relative aspect-3/4 bg-zinc-100 rounded-sm overflow-hidden mb-3 sm:mb-4">
-        <Image src={product.gambar} alt={product.nama} fill className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out" />
+        {/* PERBAIKAN 2: Menambahkan properti sizes untuk tampilan Grid (Responsive Layout) */}
+        <Image src={product.gambar} alt={product.nama} fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out" />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-500" />
       </div>
 
