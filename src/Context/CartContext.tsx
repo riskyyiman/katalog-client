@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { CartItem } from '@/types';
+import { useAuth } from './AuthContext'; // 🚀 FIX: Import context autentikasi global Kirana
 
 interface CartContextType {
   cart: CartItem[];
@@ -14,20 +15,37 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth(); // 🚀 FIX: Ambil state user login global
   const [cart, setCart] = useState<CartItem[]>([]);
 
+  // 🔄 FIX BUG 1 & 2: Sinkronisasi pemuatan data keranjang spesifik per user UID
   useEffect(() => {
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) setCart(JSON.parse(savedCart));
-  }, []);
+    if (user) {
+      // Jika user login, muat keranjang eksklusif milik akun tersebut
+      const savedCart = localStorage.getItem(`cart_${user.uid}`);
+      if (savedCart) {
+        setCart(JSON.parse(savedCart));
+      } else {
+        setCart([]);
+      }
+    } else {
+      // 🌟 KUNCI FIX BUG 1: Jika user melakukan logout, paksa keranjang menjadi KOSONG INSTAN!
+      setCart([]);
+    }
+  }, [user]);
 
+  // Fungsi helper adaptif untuk menyimpan data berdasarkan UID user aktif
   const saveCart = (newCart: CartItem[]) => {
     setCart(newCart);
-    localStorage.setItem('cart', JSON.stringify(newCart));
+    if (user) {
+      localStorage.setItem(`cart_${user.uid}`, JSON.stringify(newCart));
+    }
   };
 
   // Validasi real-time saat klik tombol tambah
   const addToCart = (newItem: CartItem, maxStock: number): boolean => {
+    if (!user) return false; // Interseptor: Cegah guest user memanipulasi data
+
     const existingItemIndex = cart.findIndex((item) => item.id === newItem.id && item.size === newItem.size);
 
     if (existingItemIndex > -1) {
@@ -74,7 +92,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     saveCart(newCart);
   };
 
-  const clearCart = () => saveCart([]);
+  const clearCart = () => {
+    setCart([]);
+    if (user) {
+      localStorage.removeItem(`cart_${user.uid}`);
+    }
+  };
 
   return <CartContext.Provider value={{ cart, addToCart, updateQuantity, removeFromCart, clearCart }}>{children}</CartContext.Provider>;
 }

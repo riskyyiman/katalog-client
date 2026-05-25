@@ -9,7 +9,7 @@ import { CheckCircle2, X, ShoppingBag, ArrowRight, LogIn } from 'lucide-react';
 import api from '@/lib/api';
 import { Product, CartItem } from '@/types';
 import { useCart } from '../../../Context/CartContext';
-import { useAuth } from '../../../Context/AuthContext'; // 1. Import hook Autentikasi
+import { useAuth } from '../../../Context/AuthContext';
 
 type TabOption = 'deskripsi' | 'spesifikasi' | 'ulasan';
 
@@ -28,7 +28,7 @@ export default function ProductDetailPage() {
   const [activeTab, setActiveTab] = useState<TabOption>('deskripsi');
   const [mainImage, setMainImage] = useState<string>('');
   const [showSizeGuide, setShowSizeGuide] = useState<boolean>(false);
-  const [showAuthModal, setShowAuthModal] = useState<boolean>(false); // 3. State Modal Login
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
   const [showToast, setShowToast] = useState<boolean>(false);
   const [isMounted, setIsMounted] = useState(false);

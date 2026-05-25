@@ -4,40 +4,60 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import api from '@/lib/api';
 
-export default function LoginPage() {
+export default function RegisterPage() {
+  const [nama, setNama] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage('');
+    setSuccessMessage('');
 
     try {
-      // Eksekusi Autentikasi langsung ke Firebase Client SDK
-      await signInWithEmailAndPassword(auth, email, password);
+      const response = await api.post(process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:5000/graphql', {
+        query: `
+        mutation CreateUser($nama: String!, $email: String!, $password: String!) {
+          registerUser(nama: $nama, email: $email, password: $password) {
+            id
+            nama
+            email
+          }
+        }
+      `,
+        variables: {
+          nama,
+          email,
+          password,
+        },
+      });
 
-      // Jika berhasil, arahkan pengguna ke halaman katalog pakaian
-      router.push('/katalog');
-    } catch (error: any) {
-      console.error('Login error:', error.code);
-      // Penerjemahan pesan error Firebase agar lebih ramah bagi pengguna
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
-        setErrorMessage('Email atau kata sandi yang Anda masukkan salah.');
-      } else if (error.code === 'auth/too-many-requests') {
-        setErrorMessage('Terlalu banyak percobaan gagal. Silakan coba beberapa saat lagi.');
-      } else {
-        setErrorMessage('Terjadi kesalahan sistem. Silakan coba lagi.');
+      // Interseptor jika server mengembalikan pesan error dari resolver
+      if (response.data.errors) {
+        throw new Error(response.data.errors[0].message);
       }
+
+      if (response.data.data.registerUser) {
+        setSuccessMessage('Akun Kirana Anda berhasil dibuat!');
+
+        // Jeda 2 detik untuk memberikan efek transisi visual sukses yang mewah kepada pengguna
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error.message);
+      setErrorMessage(error.message || 'Terjadi kesalahan sistem saat mendaftar.');
     } finally {
       setIsLoading(false);
     }
@@ -54,13 +74,13 @@ export default function LoginPage() {
             </span>
           </Link>
           <h2 className="text-2xl font-serif italic text-zinc-900">
-            Selamat <span className="text-zinc-400 font-light">Datang Kembali</span>
+            Daftar <span className="text-zinc-400 font-light">Akun Baru</span>
           </h2>
-          <p className="mt-2 text-xs text-zinc-400 uppercase tracking-widest font-medium">Masuk untuk mengeksplorasi koleksi premium Anda</p>
+          <p className="mt-2 text-xs text-zinc-400 uppercase tracking-widest font-medium">Bergabung untuk mulai mengeksplorasi koleksi premium</p>
         </div>
 
-        {/* Notifikasi Error */}
-        <AnimatePresence>
+        {/* Notifikasi Status (Error / Sukses) */}
+        <AnimatePresence mode="popLayout">
           {errorMessage && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -72,11 +92,36 @@ export default function LoginPage() {
               <span>{errorMessage}</span>
             </motion.div>
           )}
+
+          {successMessage && (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-emerald-50 border border-emerald-100 text-emerald-600 p-4 rounded-xl flex items-center gap-3 text-xs font-medium">
+              <CheckCircle2 size={16} className="shrink-0" />
+              <span>{successMessage}</span>
+            </motion.div>
+          )}
         </AnimatePresence>
 
-        {/* Form Input */}
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+        {/* Form Input Registrasi */}
+        <form className="mt-8 space-y-5" onSubmit={handleRegister}>
           <div className="space-y-4">
+            {/* Input Nama Lengkap */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-700 mb-2">Nama Lengkap</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-400">
+                  <User size={16} strokeWidth={1.5} />
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={nama}
+                  onChange={(e) => setNama(e.target.value)}
+                  placeholder="Nama Lengkap Anda"
+                  className="block w-full pl-11 pr-4 py-3.5 bg-zinc-50/50 border border-zinc-200 rounded-xl text-sm text-zinc-800 placeholder:text-zinc-400 outline-none focus:border-zinc-900 focus:bg-white transition-all duration-300"
+                />
+              </div>
+            </div>
+
             {/* Input Email */}
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-700 mb-2">Alamat Email</label>
@@ -97,12 +142,7 @@ export default function LoginPage() {
 
             {/* Input Password */}
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-700">Kata Sandi</label>
-                <a href="#" className="text-[10px] text-zinc-400 hover:text-zinc-900 transition-colors uppercase tracking-wider">
-                  Lupa Sandi?
-                </a>
-              </div>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-700 mb-2">Kata Sandi</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-400">
                   <Lock size={16} strokeWidth={1.5} />
@@ -112,7 +152,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Minimum 6 Karakter"
                   className="block w-full pl-11 pr-12 py-3.5 bg-zinc-50/50 border border-zinc-200 rounded-xl text-sm text-zinc-800 placeholder:text-zinc-400 outline-none focus:border-zinc-900 focus:bg-white transition-all duration-300"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-400 hover:text-zinc-700 transition-colors">
@@ -122,20 +162,20 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Tombol Submit */}
+          {/* Tombol Submit Pendaftaran */}
           <button
             type="submit"
-            disabled={isLoading}
-            className="w-full bg-zinc-900 text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-indigo-600 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:bg-zinc-200 disabled:text-zinc-400 shadow-sm"
+            disabled={isLoading || successMessage !== ''}
+            className="w-full bg-zinc-900 text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-indigo-600 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:bg-zinc-200 disabled:text-zinc-400 shadow-sm mt-2"
           >
             {isLoading ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                <span>Memproses...</span>
+                <span>Membuat Akun...</span>
               </>
             ) : (
               <>
-                <span>Masuk Ke Akun</span>
+                <span>Daftar Akun</span>
                 <ArrowRight size={14} />
               </>
             )}
@@ -145,9 +185,9 @@ export default function LoginPage() {
         {/* Footer Card */}
         <div className="text-center pt-2 border-t border-zinc-100">
           <p className="text-xs text-zinc-500">
-            Belum memiliki akun Kirana? {/* BERHASIL DIUBAH MENGGUNAKAN NEXT/LINK */}
-            <Link href="/register" className="font-bold text-zinc-900 hover:underline">
-              Daftar Sekarang
+            Sudah memiliki akun Kirana?{' '}
+            <Link href="/login" className="font-bold text-zinc-900 hover:underline">
+              Masuk Di Sini
             </Link>
           </p>
         </div>

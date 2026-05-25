@@ -4,36 +4,87 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import Script from 'next/script';
+import axios from 'axios'; // Gunakan axios murni untuk polling independen
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag, X, AlertTriangle, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
+import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag, X, AlertTriangle, CheckCircle2, Loader2, ShieldCheck, CreditCard, MessageSquare } from 'lucide-react';
 import { CartItem } from '@/types';
 import { useCart } from '../../Context/CartContext';
-import { useAuth } from '../../Context/AuthContext'; // Import Auth global untuk Route Guarding
+import { useAuth } from '../../Context/AuthContext';
 import api from '@/lib/api';
 
 export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, clearCart } = useCart();
-  const { user, loading: authLoading, getIdToken } = useAuth(); // Ambil state login & fungsi token
+  const { user, loading: authLoading, getIdToken } = useAuth();
   const router = useRouter();
 
   const [isMounted, setIsMounted] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // State loading saat checkout mutation
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'MIDTRANS' | 'WHATSAPP'>('MIDTRANS');
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
-  // State Konfirmasi Hapus
   const [showConfirm, setShowConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<CartItem | null>(null);
 
-  // State Toast Notifikasi
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  // 1. ROUTE GUARDING: Cegah pengguna ilegal masuk ke halaman keranjang tanpa autentikasi
   useEffect(() => {
     setIsMounted(true);
     if (!authLoading && !user) {
       router.push('/login');
     }
   }, [user, authLoading, router]);
+
+  // 🔄 EFFECT POLLING FIX: Menggunakan axios murni untuk menghindari bentrokan config header
+  useEffect(() => {
+    if (!activeOrderId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const token = await getIdToken();
+        const graphqlUrl = process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:5000/graphql';
+
+        const checkResponse = await axios.post(
+          graphqlUrl,
+          {
+            query: `
+              query CheckStatus($id: ID!) {
+                order(id: $id) {
+                  status
+                }
+              }
+            `,
+            variables: { id: activeOrderId },
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        const currentStatus = checkResponse.data?.data?.order?.status;
+
+        if (currentStatus === 'PAID') {
+          clearInterval(pollInterval);
+          setActiveOrderId(null);
+
+          try {
+            (window as any).snap.close();
+          } catch (e) {}
+
+          clearCart();
+          router.push('/order-success');
+        }
+      } catch (err) {
+        console.log('Memantau status transaksi via GraphQL...', err);
+      }
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
+  }, [activeOrderId, getIdToken, clearCart, router]);
 
   const triggerRemove = (item: CartItem) => {
     setItemToDelete(item);
@@ -53,16 +104,13 @@ export default function CartPage() {
 
   const totalPrice = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
-  // 2. MODERN GRAPHQL INTEGRATION: Mengganti Axios REST lama dengan GraphQL Mutation terproteksi
-  const checkoutWhatsApp = async () => {
+  const handleCheckout = async () => {
     if (cart.length === 0 || isSubmitting) return;
     setIsSubmitting(true);
 
     try {
-      // Mengambil JWT Token terbaru dari Firebase untuk otorisasi backend
       const token = await getIdToken();
 
-      // Susun string data items agar aman dikirim sebagai stringified JSON ke GraphQL
       const variables = {
         items: JSON.stringify(
           cart.map((item) => ({
@@ -74,46 +122,81 @@ export default function CartPage() {
           })),
         ),
         totalPrice: totalPrice,
+        paymentMethod: paymentMethod,
       };
 
-      // Tembak GraphQL Endpoint
       const response = await api.post(
-        '/graphql',
+        process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:5000/graphql',
         {
           query: `
-          mutation CreateNewOrder($items: String!, $totalPrice: Int!) {
-            createOrder(items: $items, totalPrice: $totalPrice) {
-              id
+            mutation CreateNewOrder($items: String!, $totalPrice: Int!, $paymentMethod: String!) {
+              createOrder(items: $items, totalPrice: $totalPrice, paymentMethod: $paymentMethod) {
+                id
+                snap_token
+              }
             }
-          }
-        `,
+          `,
           variables: variables,
         },
         {
           headers: {
-            Authorization: `Bearer ${token}`, // Mengirimkan bukti Web Security (Otorisasi Token)
+            Authorization: `Bearer ${token}`,
           },
         },
       );
 
-      // Periksa jika ada error internal dari GraphQL Resolver (seperti stok habis)
       if (response.data.errors) {
         throw new Error(response.data.errors[0].message);
       }
 
-      // Jika database transaction sukses, teruskan instruksi ke WhatsApp Web
-      if (response.data.data.createOrder) {
-        const phoneNumber = '6281226727458';
-        let message = 'Halo Admin Kirana, saya ingin memesan daftar barang berikut:%0A%0A';
-        cart.forEach((item, idx) => {
-          message += `${idx + 1}. *${item.name}* (${item.size}) x${item.quantity} - Rp ${(item.price * item.quantity).toLocaleString('id-ID')}%0A`;
+      const { id, snap_token } = response.data.data.createOrder;
+
+      if (paymentMethod === 'MIDTRANS') {
+        if (!snap_token) {
+          throw new Error('Gagal mendapatkan token pembayaran dari server Midtrans.');
+        }
+
+        setActiveOrderId(id);
+
+        (window as any).snap.pay(snap_token, {
+          onSuccess: function (result: any) {
+            setActiveOrderId(null);
+            clearCart();
+            router.push('/order-success');
+          },
+          onPending: function (result: any) {
+            setToastMessage('Selesaikan transaksi Anda melalui aplikasi simulator.');
+            setShowToast(true);
+          },
+          onError: function (result: any) {
+            setActiveOrderId(null);
+            alert('Pembayaran gagal dilakukan, silakan coba kembali.');
+          },
+          onClose: function () {
+            setToastMessage('Selesaikan proses pembayaran Anda pada jendela simulator.');
+            setShowToast(true);
+          },
         });
-        message += `%0A*Total Keseluruhan:* Rp ${totalPrice.toLocaleString('id-ID')}`;
+      }
+
+      // 📲 JALUR B FIX: Menggunakan encodeURIComponent agar karakter '#' tidak merusak struktur teks WhatsApp
+      else if (paymentMethod === 'WHATSAPP') {
+        const phoneNumber = '6281226727458';
+
+        let txt = `Halo Admin Kirana, saya ingin memesan produk berikut:\n\n`;
+        txt += `*ID Invoice:* #${id}\n`;
+        txt += `*Status:* Menunggu Verifikasi Manual\n\n`;
+
+        cart.forEach((item, idx) => {
+          txt += `${idx + 1}. *${item.name}* (${item.size}) x${item.quantity} - Rp ${(item.price * item.quantity).toLocaleString('id-ID')}\n`;
+        });
+        txt += `\n*Total Pembayaran:* Rp ${totalPrice.toLocaleString('id-ID')}`;
 
         clearCart();
-        window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+        window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(txt)}`, '_blank');
       }
     } catch (error: any) {
+      setActiveOrderId(null);
       console.error('Gagal memproses transaksi:', error);
       alert(error.message || 'Terjadi kesalahan sistem saat memproses pesanan Anda.');
     } finally {
@@ -121,7 +204,6 @@ export default function CartPage() {
     }
   };
 
-  // Tampilkan layar loading transisi jika status autentikasi belum siap
   if (!isMounted || authLoading || !user) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -132,8 +214,9 @@ export default function CartPage() {
 
   return (
     <div className="bg-[#FCFCFC] min-h-screen pt-10 mb-10 md:pt-20 relative">
+      <Script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || 'YOUR_CLIENT_KEY'} strategy="lazyOnload" />
+
       <div className="container mx-auto px-4 max-w-6xl">
-        {/* Header Section */}
         <div className="flex flex-col mb-12">
           <Link href="/katalog" className="flex items-center gap-2 text-zinc-400 hover:text-zinc-900 transition-colors mb-4 group w-fit">
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
@@ -172,7 +255,7 @@ export default function CartPage() {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-zinc-50 flex flex-col md:grid md:grid-cols-12 items-center gap-6 group"
+                    className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-zinc-100 flex flex-col md:grid md:grid-cols-12 items-center gap-6 group"
                   >
                     <div className="flex items-center gap-4 md:col-span-6 w-full">
                       <div className="relative w-20 h-24 md:w-24 md:h-32 shrink-0 overflow-hidden rounded-xl bg-zinc-100">
@@ -207,13 +290,39 @@ export default function CartPage() {
               </AnimatePresence>
             </div>
 
-            {/* Sidebar Summary Ringkasan Belanja */}
             <div className="lg:col-span-4">
               <div className="bg-zinc-900 text-white p-8 rounded-[2.5rem] shadow-2xl sticky top-32 overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl" />
-                <h2 className="text-2xl font-serif italic mb-8 relative z-10">
+                <h2 className="text-2xl font-serif italic mb-6 relative z-10">
                   Ringkasan <br /> Pesanan
                 </h2>
+
+                <div className="mb-8 relative z-10">
+                  <label className="block text-[9px] font-bold uppercase tracking-widest text-zinc-400 mb-3">Metode Pembayaran</label>
+                  <div className="grid grid-cols-2 gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('MIDTRANS')}
+                      className={`flex flex-col items-center justify-center py-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all gap-1.5 ${
+                        paymentMethod === 'MIDTRANS' ? 'bg-white text-zinc-900 shadow-lg' : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      <CreditCard size={14} />
+                      <span>Otomatis (QRIS)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('WHATSAPP')}
+                      className={`flex flex-col items-center justify-center py-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all gap-1.5 ${
+                        paymentMethod === 'WHATSAPP' ? 'bg-white text-zinc-900 shadow-lg' : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      <MessageSquare size={14} />
+                      <span>Manual (WA)</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-4 mb-8 relative z-10">
                   <div className="flex justify-between text-zinc-400 text-xs uppercase tracking-[0.2em]">
                     <span>Subtotal</span>
@@ -221,7 +330,7 @@ export default function CartPage() {
                   </div>
                   <div className="flex justify-between text-zinc-400 text-xs uppercase tracking-[0.2em]">
                     <span>Pengiriman</span>
-                    <span className="italic text-[10px]">Dihitung saat checkout</span>
+                    <span className="italic text-[10px] lowercase text-zinc-400">{paymentMethod === 'MIDTRANS' ? 'gratis' : 'hitung manual'}</span>
                   </div>
                   <div className="pt-6 border-t border-white/10 flex justify-between items-end">
                     <span className="text-sm font-medium">Total Estimasi</span>
@@ -230,14 +339,18 @@ export default function CartPage() {
                 </div>
 
                 <button
-                  onClick={checkoutWhatsApp}
+                  onClick={handleCheckout}
                   disabled={isSubmitting}
                   className="w-full bg-white text-zinc-900 py-5 rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-zinc-200 transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:bg-zinc-700 disabled:text-zinc-400"
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 size={14} className="animate-spin" />
-                      <span>Mengamankan Stok...</span>
+                      <span>Mengunci Stok...</span>
+                    </>
+                  ) : paymentMethod === 'MIDTRANS' ? (
+                    <>
+                      <span>Bayar Otomatis Sekarang</span>
                     </>
                   ) : (
                     <>
@@ -259,29 +372,17 @@ export default function CartPage() {
       {/* Confirm Hapus Modal */}
       <AnimatePresence>
         {showConfirm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm z-200 flex items-center justify-center p-6" onClick={() => setShowConfirm(false)}>
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-white p-8 rounded-4xl max-w-sm w-full shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
-              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                <AlertTriangle size={32} />
-              </div>
-              <h3 className="text-xl font-bold text-zinc-900 mb-2">Hapus Produk?</h3>
-              <p className="text-zinc-500 text-sm mb-8 leading-relaxed">
-                Apakah Anda yakin ingin menghapus <span className="font-bold text-zinc-800">{itemToDelete?.name}</span> ({itemToDelete?.size}) dari keranjang?
-              </p>
-              <div className="flex gap-3">
-                <button onClick={() => setShowConfirm(false)} className="flex-1 py-4 bg-zinc-50 text-zinc-500 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-100 transition-all">
-                  Batal
-                </button>
-                <button onClick={confirmDelete} className="flex-1 py-4 bg-red-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-600 transition-all shadow-lg shadow-red-200">
-                  Ya, Hapus
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm z-200 flex items-center justify-center p-6"
+            onClick={() => setShowConfirm(false)}
+          ></motion.div>
         )}
       </AnimatePresence>
 
-      {/* --- TOAST --- */}
+      {/* Toast Notifikasi */}
       <AnimatePresence>
         {showToast && (
           <motion.div
@@ -295,7 +396,7 @@ export default function CartPage() {
                 <CheckCircle2 size={16} className="text-white" />
               </div>
               <div className="flex-1">
-                <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Terhapus</p>
+                <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Informasi</p>
                 <p className="text-xs font-medium">{toastMessage}</p>
               </div>
               <button onClick={() => setShowToast(false)} className="text-zinc-500 hover:text-white">
